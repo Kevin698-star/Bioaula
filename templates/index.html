@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BioAula · Plataforma Educativa Impulsada con IA</title>
+
+  <!-- Fuentes -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+
+<!-- ── Toast global ───────────────────────────────────── -->
+<div id="toast"></div>
+
+<!-- ══════════════════════════════════════════════════════
+     PANTALLA DE CONFIGURACIÓN INICIAL
+     ══════════════════════════════════════════════════════ -->
+<div id="setup-screen" class="setup-screen">
+  <div class="setup-logo">BioAula</div>
+  <p class="setup-tagline">
+    Plataforma educativa con IA · El profesor sube material, la IA genera pruebas
+    únicas para cada estudiante y analiza el desempeño del grupo
+  </p>
+
+  <div class="setup-card">
+    <div class="setup-steps">
+      <div class="step">
+        <div class="step-n">1</div>
+        <span>Ve a <a href="https://aistudio.google.com/apikey" target="_blank" class="api-link">aistudio.google.com/apikey</a> y crea una API Key gratuita de Gemini</span>
+      </div>
+      <div class="step">
+        <div class="step-n">2</div>
+        <span>El plan gratuito incluye Gemini 2.5 Flash con 1 millón de tokens de contexto</span>
+      </div>
+      <div class="step">
+        <div class="step-n">3</div>
+        <span>AIzaSyCGlRYU67tAUHnEPhzCRImAIJqF3owoJzU</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>API Key de Gemini</label>
+      <input type="password" id="apikey-input" placeholder="AIza...">
+      <p class="api-note">La clave se guarda solo en localStorage. Nunca se envía a servidores externos.</p>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%"
+      onclick="BioAula.saveApiKey()">Entrar a BioAula →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     APP PRINCIPAL
+     ══════════════════════════════════════════════════════ -->
+<div id="app" style="display:none">
+
+  <!-- ── Navegación ──────────────────────────────────── -->
+  <nav>
+    <div class="nav-logo">Bio<span>Aula</span></div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="BioAula.switchView('profesor')" id="tab-prof">Profesor</button>
+      <button class="nav-tab" onclick="BioAula.switchView('estadisticas')" id="tab-stats">
+        Estadísticas
+        <span class="nav-badge" id="stats-badge" style="display:none">0</span>
+      </button>
+      <button class="nav-tab" onclick="BioAula.switchView('estudiante')" id="tab-est">
+        Estudiante
+        <span class="nav-badge" id="quiz-badge" style="display:none">Lista</span>
+      </button>
+      <button class="nav-tab" onclick="BioAula.switchView('config')" id="tab-cfg">⚙</button>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- ══ VISTA: PROFESOR ══════════════════════════════ -->
+    <div class="section active" id="view-profesor">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">📚</div>
+          <div>
+            <div class="card-title">Configurar prueba</div>
+            <div class="card-sub">Sube el material y configura los parámetros</div>
+          </div>
+        </div>
+
+        <!-- Parámetros principales -->
+        <div class="field-grid-2">
+          <div class="field" style="margin:0">
+            <label>Tema de la clase</label>
+            <input type="text" id="topic" placeholder="Ej: Mitosis y división celular">
+          </div>
+          <div class="field" style="margin:0">
+            <label>Nivel</label>
+            <select id="nivel">
+              <option value="bachillerato">Bachillerato (10-11)</option>
+              <option value="secundaria">Secundaria (6-9)</option>
+              <option value="universitario">Universitario</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field-grid-2" style="margin-top:12px">
+          <div class="field" style="margin:0">
+            <label>Preguntas por estudiante</label>
+            <select id="num-questions">
+              <option value="5">5 preguntas</option>
+              <option value="8">8 preguntas</option>
+              <option value="10" selected>10 preguntas</option>
+              <option value="15">15 preguntas</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0">
+            <label>Banco total de preguntas</label>
+            <select id="bank-size">
+              <option value="20">20 (pool pequeño)</option>
+              <option value="30" selected>30 (recomendado)</option>
+              <option value="40">40 (máxima variedad)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Tabs de material -->
+        <div class="inner-tabs">
+          <button class="inner-tab active" onclick="BioAula.switchMatTab('texto')">Texto / Apuntes</button>
+          <button class="inner-tab" onclick="BioAula.switchMatTab('archivos')">Archivos</button>
+          <button class="inner-tab" onclick="BioAula.switchMatTab('urls')">URLs / YouTube</button>
+        </div>
+
+        <!-- Panel: Texto -->
+        <div class="inner-panel active" id="mat-texto">
+          <div class="field" style="margin:0">
+            <textarea id="material-text"
+              placeholder="Pega aquí el contenido de la clase, resúmenes, apuntes, texto del libro...&#10;Mientras más detallado, mejor será la prueba generada."
+              style="min-height:130px"></textarea>
+          </div>
+        </div>
+
+        <!-- Panel: Archivos -->
+        <div class="inner-panel" id="mat-archivos">
+          <div class="alert alert-info">
+            Soporta PDF, Word (.docx), TXT, imágenes (PNG/JPG). El contenido se extrae y envía a Gemini.
+          </div>
+          <div class="upload-zone" id="upload-zone"
+            onclick="document.getElementById('file-input').click()"
+            ondragover="BioAula.onDragOver(event)"
+            ondrop="BioAula.onDrop(event)"
+            ondragleave="BioAula.onDragLeave()">
+            <input type="file" id="file-input" multiple
+              accept=".pdf,.txt,.docx,.doc,.png,.jpg,.jpeg,.md,.csv"
+              onchange="BioAula.handleFiles(this)">
+            <div style="font-size:24px;margin-bottom:6px">📎</div>
+            <div style="font-size:14px;color:var(--text2);font-weight:500">Arrastra archivos aquí o haz clic</div>
+            <span class="upload-label">PDF · Word · TXT · Imágenes</span>
+          </div>
+          <div id="file-list"></div>
+        </div>
+
+        <!-- Panel: URLs -->
+        <div class="inner-panel" id="mat-urls">
+          <div class="field" style="margin:0">
+            <label>URLs separadas por coma (YouTube, artículos web)</label>
+            <textarea id="urls"
+              placeholder="https://youtube.com/watch?v=...&#10;https://es.wikipedia.org/wiki/Mitosis"
+              style="min-height:80px"></textarea>
+          </div>
+        </div>
+
+        <!-- Botón de generación -->
+        <div class="btn-row">
+          <button class="btn btn-primary" id="gen-btn" onclick="BioAula.generateAll()">
+            <span class="dots" id="gen-dots" style="display:none">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            </span>
+            <span id="gen-label">Generar banco de preguntas + apoyo →</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Output del profesor (generado dinámicamente) -->
+      <div id="prof-output"></div>
+    </div>
+
+    <!-- ══ VISTA: ESTADÍSTICAS ═══════════════════════════ -->
+    <div class="section" id="view-estadisticas">
+      <div id="stats-empty" class="card" style="text-align:center;padding:3rem">
+        <div style="font-size:40px;opacity:0.3;margin-bottom:12px">📊</div>
+        <p style="color:var(--text3);font-size:14px">
+          Aún no hay estudiantes que hayan completado la prueba.<br>
+          Las estadísticas aparecerán aquí automáticamente.
+        </p>
+      </div>
+      <div id="stats-content" style="display:none">
+        <div id="stats-summary"></div>
+        <div id="stats-students"></div>
+        <div id="stats-topics"></div>
+        <div id="stats-ai-analysis"></div>
+      </div>
+    </div>
+
+    <!-- ══ VISTA: ESTUDIANTE ═════════════════════════════ -->
+    <div class="section" id="view-estudiante">
+
+      <!-- Formulario de inicio -->
+      <div id="student-start">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-icon">🎓</div>
+            <div>
+              <div class="card-title">Tu prueba personalizada</div>
+              <div class="card-sub">Cada estudiante recibe un conjunto único de preguntas del banco</div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Tu nombre completo</label>
+            <input type="text" id="student-name" placeholder="Ej: Laura García Ruiz">
+          </div>
+          <div class="field">
+            <label>Número de documento</label>
+            <input type="text" id="student-doc" placeholder="Ej: 1098765432" inputmode="numeric">
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" onclick="BioAula.startQuiz()">Comenzar prueba →</button>
+          </div>
+        </div>
+
+        <!-- Material de estudio (cargado dinámicamente) -->
+        <div id="study-material-preview"></div>
+      </div>
+
+      <!-- Contenedor del quiz activo -->
+      <div id="quiz-container" style="display:none">
+        <div class="quiz-progress">
+          <div class="quiz-progress-bar" id="progress-bar" style="width:0%"></div>
+        </div>
+        <div id="question-area"></div>
+      </div>
+
+      <!-- Resultados (cargados dinámicamente) -->
+      <div id="results-container" style="display:none"></div>
+    </div>
+
+    <!-- ══ VISTA: CONFIGURACIÓN ══════════════════════════ -->
+    <div class="section" id="view-config">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-icon">🔑</div>
+          <div>
+            <div class="card-title">Configuración</div>
+            <div class="card-sub">API Key y datos guardados</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>API Key de Gemini</label>
+          <input type="password" id="apikey-edit" placeholder="AIza...">
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="BioAula.updateApiKey()">Guardar →</button>
+          <button class="btn" style="color:var(--warn);border-color:rgba(251,191,36,0.3)"
+            onclick="BioAula.clearResults()">Borrar resultados</button>
+          <button class="btn" style="color:var(--danger);border-color:rgba(248,113,113,0.3)"
+            onclick="BioAula.clearAll()">Borrar todo</button>
+        </div>
+
+        <div class="divider"></div>
+        <div class="powered">
+          <div class="gem-dot"></div>
+          Powered by Gemini 2.5 Flash · 1M tokens · Plan gratuito de Google AI Studio
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div><!-- /#app -->
+
+<!-- ── Módulo JS principal ─────────────────────────── -->
+<script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+</body>
+</html>
